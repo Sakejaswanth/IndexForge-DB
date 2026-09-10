@@ -36,12 +36,14 @@ int BufferPoolManager::GetFreeFrame() {
 char* BufferPoolManager::FetchPage(int page_id) {
     auto it = page_table_.find(page_id);
     if (it != page_table_.end()) {
+        hit_count_++;
         int fid = it->second;
         frames_[fid].pin_count++;
         replacer_.Remove(fid);
         return frames_[fid].data;
     }
 
+    miss_count_++;
     int fid = GetFreeFrame();
     Frame& f = frames_[fid];
     dm_->ReadPage(page_id, f.data);

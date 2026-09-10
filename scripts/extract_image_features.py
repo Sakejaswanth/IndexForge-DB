@@ -58,16 +58,23 @@ def _get_model():
         return
 
     except Exception as e:
-        raise RuntimeError(
-            f"Cannot load MobileNetV2. Install tensorflow or torch+torchvision. Error: {e}"
-        )
+        print(f"[WARN] Cannot load MobileNetV2 ({e}). Using PIL lightweight feature fallback.")
+        _use_tf = "pil"
+        return
 
 
 def extract_raw_features(image_path: str) -> np.ndarray:
 
     _get_model()
 
-    if _use_tf:
+    if _use_tf == "pil":
+        from PIL import Image
+        img = Image.open(image_path).convert('RGB').resize((20, 21))
+        arr = np.array(img, dtype=np.float32).flatten() / 255.0
+        pad = np.zeros(1280 - len(arr), dtype=np.float32)
+        return np.concatenate([arr, pad])
+
+    elif _use_tf:
         from tensorflow.keras.preprocessing import image as kimage
         from tensorflow.keras.applications.mobilenet_v2 import preprocess_input
         img  = kimage.load_img(image_path, target_size=IMG_SIZE)

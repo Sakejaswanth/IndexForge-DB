@@ -17,12 +17,21 @@ BATCH_SIZE    = 32
 RT_INSERT_BATCH = 100
 
 sys.path.append('./build')
-import sqlmates_core
+sys.path.insert(0, '.')
+try:
+    import sqlmates_core
+except ImportError:
+    import python_core as sqlmates_core
+
 try:
     import rtree_core
     RTREE_AVAILABLE = True
 except ImportError:
-    RTREE_AVAILABLE = False
+    try:
+        import python_core as rtree_core
+        RTREE_AVAILABLE = True
+    except ImportError:
+        RTREE_AVAILABLE = False
 
 W = 72
 def sep(t=''):

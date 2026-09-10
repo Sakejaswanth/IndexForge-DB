@@ -2,20 +2,46 @@ from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+from contextlib import asynccontextmanager
 import sys, os, random, tempfile, csv, json, time
 import numpy as np
 
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 sys.path.append('./build')
-import sqlmates_core
+sys.path.insert(0, '.')
+
+try:
+    import sqlmates_core
+    CORE_BACKEND = "C++"
+    print("sqlmates_core C++ module loaded [OK]")
+except ImportError:
+    import python_core as sqlmates_core
+    CORE_BACKEND = "Python Fallback"
+    print("[INFO] sqlmates_core C++ module not found — using python_core fallback [OK]")
+
 try:
     import rtree_core
     RTREE_AVAILABLE = True
-    print("R-Tree module loaded ✓")
+    RTREE_BACKEND = "C++"
+    print("R-Tree C++ module loaded [OK]")
 except ImportError:
-    RTREE_AVAILABLE = False
-    print("⚠ R-Tree module not found — R-Tree endpoints will return errors")
+    try:
+        import python_core as rtree_core
+        RTREE_AVAILABLE = True
+        RTREE_BACKEND = "Python Fallback"
+        print("[INFO] rtree_core C++ module not found — using python_core fallback [OK]")
+    except ImportError:
+        RTREE_AVAILABLE = False
+        RTREE_BACKEND = "None"
+        print("[WARN] R-Tree module not found — R-Tree endpoints will return errors")
 
-app = FastAPI(title="SQLMates KD-Tree + R-Tree API")
+app = FastAPI(title="IndexForge-DB API")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"], allow_credentials=True,
@@ -60,7 +86,7 @@ def get_kd_engine(data_db, index_idx, dims, key):
         if e.get_total_records() > 0:
             e.build_index()
         kd_engines[key] = e
-        log(f"  ✓ {e.get_total_records():,} records × {dims}D")
+        log(f"  [OK] {e.get_total_records():,} records × {dims}D")
     return kd_engines[key]
 
 def get_rt_engine(data_db, tree_db, dims, key):
@@ -72,7 +98,7 @@ def get_rt_engine(data_db, tree_db, dims, key):
         log(f"Loading RT engine: {key} …")
         e = rtree_core.RTreeEngine(data_db, tree_db, dims)
         rt_engines[key] = e
-        log(f"  ✓ RT {dims}D ready")
+        log(f"  [OK] RT {dims}D ready")
     return rt_engines[key]
 
 # ── GTZAN row map ──────────────────────────────────────────────────────────────
@@ -194,27 +220,42 @@ def record_id_to_image(record_id: int) -> dict:
         "original_id": original_id,
     }
 
-# ── Startup ────────────────────────────────────────────────────────────────────
-@app.on_event("startup")
-def startup_event():
+# ── Lifespan Context ───────────────────────────────────────────────────────────
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     os.makedirs("data", exist_ok=True)
-    sep("STARTUP — SQLMates API")
+    sep("STARTUP — IndexForge-DB API")
 
     _load_gtzan_row_map()
     _load_image_metadata()
+
+    # Automatically generate sample demo data for hosting if neither real dataset nor demo data exist
+    if not os.path.exists("data/pca_meta.json") and not os.path.exists("Data/features_3_sec.csv"):
+        log("No GTZAN dataset found. Generating sample demo data for instant hosting demo …")
+        try:
+            from scripts.generate_sample_data import generate_audio_sample_data, generate_image_sample_data
+            generate_audio_sample_data("data")
+            generate_image_sample_data("data")
+            _load_gtzan_row_map()
+            _load_image_metadata()
+            log("  [OK] Sample demo datasets seeded.")
+        except Exception as ex:
+            log(f"  [WARN] Sample demo data generation failed: {ex}")
 
     # 2D random demo
     log("Initialising 2D random demo …")
     e = sqlmates_core.IndexEngine("data/data.db", "data/index.idx", 2)
     if e.get_total_records() == 0:
-        log("  Generating 100,000 random 2D points …")
+        num_demo_pts = 100_000 if CORE_BACKEND == "C++" else 25_000
+        log(f"  Generating {num_demo_pts:,} random 2D points …")
         rng = random.Random(42)
-        for start in range(0, 100_000, 10_000):
-            vecs = [[rng.uniform(0, 1000), rng.uniform(0, 1000)] for _ in range(10_000)]
+        batch = 5_000
+        for start in range(0, num_demo_pts, batch):
+            vecs = [[rng.uniform(0, 1000), rng.uniform(0, 1000)] for _ in range(batch)]
             e.insert_vectors(vecs)
     e.build_index()
     kd_engines["random_2d"] = e
-    log(f"  ✓ 2D engine ready ({e.get_total_records():,} records)")
+    log(f"  [OK] 2D engine ready ({e.get_total_records():,} records)")
 
     # Pre-load Audio KD engines
     for d in ALL_DIMS:
@@ -233,6 +274,9 @@ def startup_event():
             except Exception as ex: log(f"  [WARN] IMG KD {d}D: {ex}")
 
     sep()
+    yield
+
+app.router.lifespan_context = lifespan
 
 # ── 2D Canvas ──────────────────────────────────────────────────────────────────
 class SearchQuery2D(BaseModel):
@@ -326,8 +370,12 @@ async def search_audio(file: UploadFile = File(...), k: int = 5):
         with open(meta_path) as f:
             pca_meta = json.load(f)
 
-        feats_by_dim = extract_for_all_dims(tmp_path, pca_meta, ALL_DIMS)
-        log(f"Feature extraction + PCA: {time.time()-t0:.2f}s")
+        try:
+            feats_by_dim = extract_for_all_dims(tmp_path, pca_meta, ALL_DIMS)
+            log(f"Feature extraction + PCA: {time.time()-t0:.2f}s")
+        except Exception as ex:
+            log(f"Audio feature extraction failed: {ex}")
+            raise HTTPException(400, f"Could not process uploaded audio file: {ex}")
 
         kd_results, rt_results = {}, {}
         for d in ALL_DIMS:
@@ -427,8 +475,12 @@ async def search_image(file: UploadFile = File(...), k: int = 5):
         t0 = time.time()
         with open(meta_path) as f:
             pca_meta = json.load(f)
-        feats_by_dim = extract_for_all_dims(tmp_path, pca_meta, ALL_DIMS)
-        log(f"CNN + PCA extraction: {time.time()-t0:.2f}s")
+        try:
+            feats_by_dim = extract_for_all_dims(tmp_path, pca_meta, ALL_DIMS)
+            log(f"CNN + PCA extraction: {time.time()-t0:.2f}s")
+        except Exception as ex:
+            log(f"Image feature extraction failed: {ex}")
+            raise HTTPException(400, f"Could not process uploaded image file: {ex}")
 
         kd_results, rt_results = {}, {}
         for d in ALL_DIMS:
@@ -459,6 +511,8 @@ async def search_image(file: UploadFile = File(...), k: int = 5):
 def health():
     return {
         "status":          "ok",
+        "core_backend":    CORE_BACKEND,
+        "rtree_backend":   RTREE_BACKEND,
         "kd_engines":      list(kd_engines.keys()),
         "rt_engines":      list(rt_engines.keys()),
         "rtree_available": RTREE_AVAILABLE,
@@ -466,3 +520,32 @@ def health():
         "image_meta_by_id": len(IMAGE_META_BY_ID),
         "gtzan_rows":      N_ORIGINAL,
     }
+
+# ── Frontend static & SPA serving ──────────────────────────────────────────────
+from fastapi.responses import FileResponse
+
+FRONTEND_DIST = os.path.join(os.path.dirname(os.path.abspath(__file__)), "frontend", "dist")
+
+if os.path.exists(FRONTEND_DIST):
+    assets_dir = os.path.join(FRONTEND_DIST, "assets")
+    if os.path.exists(assets_dir):
+        app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
+
+    @app.get("/{full_path:path}", include_in_schema=False)
+    async def serve_frontend(full_path: str):
+        if full_path.startswith("api") or full_path.startswith("audio") or full_path.startswith("images"):
+            raise HTTPException(404, "Not found")
+        target = os.path.join(FRONTEND_DIST, full_path)
+        if os.path.isfile(target):
+            return FileResponse(target)
+        index_file = os.path.join(FRONTEND_DIST, "index.html")
+        if os.path.isfile(index_file):
+            return FileResponse(index_file)
+        raise HTTPException(404, "Frontend build not found")
+
+if __name__ == "__main__":
+    import uvicorn
+    port = int(os.environ.get("PORT", 8004))
+    host = os.environ.get("HOST", "0.0.0.0")
+    print(f"Starting IndexForge-DB server on http://{host}:{port}")
+    uvicorn.run("app:app", host=host, port=port, reload=False)

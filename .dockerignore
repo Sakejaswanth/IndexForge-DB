@@ -1,0 +1,14 @@
+.git
+.github
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.venv
+venv
+frontend/node_modules
+frontend/.vite
+Data/
+data/*.db
+data/*.idx
+build/

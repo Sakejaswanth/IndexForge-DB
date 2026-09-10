@@ -296,11 +296,15 @@ std::vector<std::pair<int, float>> RTree::KNNSearch(
     using QItem = std::tuple<float, int, bool>;
     std::priority_queue<QItem, std::vector<QItem>, std::greater<QItem>> pq;
 
+    int root_pid = rtf_.GetRootPageId();
+    if (root_pid < 0) return {};
+
     {
         RTreeNode root;
-        rtf_.ReadNode(rtf_.GetRootPageId(), root);
+        rtf_.ReadNode(root_pid, root);
+        if (root.count == 0) return {};
         MBR root_mbr = root.ComputeBoundingMBR();
-        pq.push({root_mbr.MinDistSq(query_pt), rtf_.GetRootPageId(), true});
+        pq.push({root_mbr.MinDistSq(query_pt), root_pid, true});
     }
 
     std::vector<std::pair<int, float>> results;
@@ -333,12 +337,14 @@ int RTree::GetTreeHeight() const
 {
     int height = 0;
     int pid    = rtf_.GetRootPageId();
+    if (pid < 0) return 0;
     while (true) {
         RTreeNode node;
         rtf_.ReadNode(pid, node);
         ++height;
         if (node.is_leaf || node.count == 0) break;
         pid = node.entries[0].child_or_record;
+        if (pid < 0) break;
     }
     return height;
 }

@@ -1,4 +1,4 @@
-# KD-Tree & R-Tree: Implementation and Evaluation for Multidimensional Search
+# IndexForge-DB: Multidimensional Search Engine (KD-Tree & R-Tree)
 
 **IIT Kharagpur · CS39202 Database Management Systems · 2025–26**
 
@@ -39,7 +39,7 @@ Generated datasets and native build outputs are intentionally excluded by `.giti
 ## Project Structure
 
 ```
-sqlmates_db/
+IndexForge-DB/
 ├── src/
 │   ├── page.h                      # Page struct: 4096-byte aligned buffer
 │   ├── disk_manager.cpp/h          # Raw page read/write via fstream
@@ -51,7 +51,7 @@ sqlmates_db/
 │   ├── rtree_file.cpp/h            # R-Tree page I/O layer
 │   ├── rtree.cpp/h                 # R-Tree: insert, quadratic split, kNN
 │   ├── search_engine.cpp/h         # Linear scan baseline + timing template
-│   ├── bind.cpp                    # pybind11 → sqlmates_core (KD-Tree)
+│   ├── bind_kdtree.cpp             # pybind11 → sqlmates_core (KD-Tree)
 │   ├── bind_rtree.cpp              # pybind11 → rtree_core (R-Tree)
 │   └── main.cpp                    # Standalone C++ benchmark (no Python)
 ├── scripts/
@@ -266,18 +266,25 @@ cd IndexForge-DB
 ### Step 1 — Python dependencies
 
 ```powershell
-pip install fastapi uvicorn pybind11 librosa numpy pandas scikit-learn torch torchvision pillow
+pip install -r requirements.txt
 ```
 
-### Step 2 — Build C++ modules
+*(Includes `fastapi`, `uvicorn`, `python-multipart`, `pybind11`, `librosa`, `numpy`, `pandas`, `scikit-learn`, `torch`, `torchvision`, `pillow`).*
+
+### Step 2 — Build C++ modules (Optional)
+
+If a C++17 compiler (MSVC, GCC, or Clang) is available:
 
 ```powershell
 cmake -S src -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --config Release
 ```
 
-### Step 3 — Download datasets
+> **Note**: If C++ modules are not built, IndexForge automatically falls back to an optimized pure-Python storage engine (`python_core.py`), ensuring the entire app runs out-of-the-box on any OS or cloud host!
 
+### Step 3 — Download datasets (or use auto-generated sample demo data)
+
+To use full datasets:
 ```bash
 pip install kaggle
 mkdir -p ~/.kaggle
@@ -290,12 +297,14 @@ unzip gtzan-dataset-music-genre-classification.zip -d Data/
 unzip stanford-dogs-dataset.zip -d Data/
 ```
 
+*(If Kaggle datasets are not downloaded, sample demo data is automatically seeded on first launch, or via `python scripts/generate_sample_data.py`).*
+
 ### Step 4 — Build indexes
 
 ```powershell
 New-Item -ItemType Directory -Force data
 
-# Audio: GTZAN 99K records at 5 dimensionalities
+# Audio: GTZAN 99K records at 5 dimensionalities (or sample data)
 python scripts/load_dataset.py --dataset gtzan_99k
 
 # Images: Stanford Dogs 12K records at 5 dimensionalities
@@ -310,21 +319,29 @@ python scripts/preprocess_images.py
 
 Outputs KD-Tree vs linear timing for 100K random 2D points directly from C++.
 
-### Step 6 — Start backend
+### Step 6 — Run the full application (Single-Command Hosting)
 
-```powershell
-uvicorn app:app --reload --port 8004
-```
-
-### Step 7 — Start frontend
-
+Build the frontend once:
 ```powershell
 cd frontend
 npm install
-npm run dev
+npm run build
+cd ..
 ```
 
-Open **http://localhost:5173**.
+Then start the unified server:
+```powershell
+python app.py
+```
+Open **http://localhost:8004** to access the full interactive dashboard and all API endpoints!
+
+### Docker Deployment
+
+To build and run anywhere with containerization:
+```powershell
+docker build -t indexforge-db .
+docker run -p 8004:8004 indexforge-db
+```
 
 ---
 

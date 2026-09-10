@@ -11,8 +11,10 @@ public:
 
 
     bool Evict(int* frame_id);
+    int Evict();
 
     void RecordAccess(int frame_id);
+    void Insert(int frame_id) { RecordAccess(frame_id); }
 
     void Remove(int frame_id);
 

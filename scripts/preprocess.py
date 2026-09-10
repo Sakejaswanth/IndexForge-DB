@@ -4,8 +4,16 @@ import pandas as pd
 from sklearn.decomposition import PCA
 
 sys.path.append('./build')
-import sqlmates_core
-import rtree_core
+sys.path.insert(0, '.')
+try:
+    import sqlmates_core
+except ImportError:
+    import python_core as sqlmates_core
+
+try:
+    import rtree_core
+except ImportError:
+    import python_core as rtree_core
 
 # ── Config ────────────────────────────────────────────────────────────────────
 ALL_DIMS     = [2, 5, 10, 20, 30]

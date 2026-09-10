@@ -846,7 +846,7 @@ export default function App() {
     <div id="root">
       <div className="header">
         <div className="header-dot"/>
-        <div className="header-title">SQLMATES — KD-TREE + R-TREE BENCHMARK</div>
+        <div className="header-title">INDEXFORGE-DB — KD-TREE + R-TREE BENCHMARK</div>
         <div className="header-sub">IIT Kharagpur · DBMS Project</div>
       </div>
       <div className="tabs">

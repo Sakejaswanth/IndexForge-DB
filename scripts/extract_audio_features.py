@@ -25,10 +25,23 @@ assert len(FEATURE_NAMES_30) == 30
 
 
 def extract_raw_30(audio_path: str) -> list:
+    y, sr = None, None
     try:
         y, sr = librosa.load(audio_path, duration=30, sr=22050)
-    except Exception as e:
-        raise ValueError(f"Could not load audio: {e}")
+    except Exception:
+        try:
+            import soundfile as sf
+            data, sr_orig = sf.read(audio_path)
+            if data.ndim > 1:
+                data = data.mean(axis=1)
+            y = data.astype(np.float32)
+            if sr_orig != 22050:
+                y = librosa.resample(y, orig_sr=sr_orig, target_sr=22050)
+            sr = 22050
+            if len(y) > 30 * sr:
+                y = y[:30 * sr]
+        except Exception as e:
+            raise ValueError(f"Could not load audio file: {e}")
 
     tempo, _    = librosa.beat.beat_track(y=y, sr=sr)
     chroma      = librosa.feature.chroma_stft(y=y, sr=sr)

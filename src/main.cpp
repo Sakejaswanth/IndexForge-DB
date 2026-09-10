@@ -15,19 +15,19 @@ constexpr int DATA_POOL_SIZE  =  64;
 constexpr int INDEX_POOL_SIZE = 128;
 
 int main() {
-    std::cout << "--- SQLMates KD-Tree Benchmark (LRU Buffer Pool) ---\n";
+    std::cout << "--- IndexForge-DB Benchmark (LRU Buffer Pool) ---\n";
 
     // 1. Setup storage layer
     DiskManager data_dm("data.db");
     DiskManager index_dm("kdtree.idx");
 
     // 2. Wrap in LRU buffer pools
-    BufferPoolManager data_bpm (DATA_POOL_SIZE,  &data_dm);
-    BufferPoolManager index_bpm(INDEX_POOL_SIZE, &index_dm);
+    BufferPoolManager data_bpm (&data_dm,  DATA_POOL_SIZE);
+    BufferPoolManager index_bpm(&index_dm, INDEX_POOL_SIZE);
 
     // 3. Build higher-level structures on top of the pools
-    DataFile   data_file(&data_bpm, 2);          // 2D points
-    KDTreeDisk kdtree   (&index_bpm, &data_file, 2);
+    DataFile   data_file(&data_dm, &data_bpm, 2);          // 2D points
+    KDTreeDisk kdtree   (&index_dm, &index_bpm, &data_file, 2);
 
     const int num_points = 100000;
     const int k          = 10;

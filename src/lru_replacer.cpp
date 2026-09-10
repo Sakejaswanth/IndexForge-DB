@@ -11,6 +11,12 @@ bool LRUReplacer::Evict(int* frame_id) {
     return true;
 }
 
+int LRUReplacer::Evict() {
+    int fid = -1;
+    if (Evict(&fid)) return fid;
+    return -1;
+}
+
 void LRUReplacer::RecordAccess(int frame_id) {
     auto it = frame_map_.find(frame_id);
     if (it != frame_map_.end()) {

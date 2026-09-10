@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.15)
-project(sqlmates_db)
+project(IndexForge-DB)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -75,9 +75,23 @@ set_target_properties(rtree_core PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/../build"
 )
 
+# ── Standalone C++ Benchmark ───────────────────────────────────────────────────
+add_executable(benchmark
+    main.cpp
+    ${SHARED_SOURCES}
+    lru_replacer.cpp
+    kdtree_disk.cpp
+    search_engine.cpp
+)
+target_include_directories(benchmark PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+set_target_properties(benchmark PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/../build"
+)
+
 # ── Print summary ──────────────────────────────────────────────────────────────
 message(STATUS "")
 message(STATUS "Targets:")
-message(STATUS "  sqlmates_core → ../build/sqlmates_core*.so  (KD-Tree)")
-message(STATUS "  rtree_core    → ../build/rtree_core*.so     (R-Tree)")
+message(STATUS "  sqlmates_core → ../build/sqlmates_core*  (KD-Tree)")
+message(STATUS "  rtree_core    → ../build/rtree_core*     (R-Tree)")
+message(STATUS "  benchmark     → ../build/benchmark*      (Standalone C++ binary)")
 message(STATUS "")
