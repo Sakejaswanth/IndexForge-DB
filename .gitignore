@@ -1,0 +1,47 @@
+# ===== C++ Build =====
+build/
+*.o
+*.so
+*.a
+benchmark
+data.db
+kdtree.idx
+
+# ===== Data Files =====
+data/
+*.db
+*.idx
+
+# ===== Python =====
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+venv/
+.venv/
+
+# ===== Frontend =====
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# ===== Zone Identifier (WSL Windows artifacts) =====
+*:Zone.Identifier
+**/*:Zone.Identifier
+
+# ===== IDE =====
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ===== OS =====
+.DS_Store
+Thumbs.db
+
+Data/
+
+*.zip
+*.mp3
+*.wav
