@@ -258,29 +258,22 @@ All experiments run on a single CPU core. Dataset sizes: 99K records (audio), 12
 
 ### Clone
 
-```bash
-git clone https://github.com/veda-anshu/KD-TREE-AND-R-TREE.git
-cd KD-TREE-AND-R-TREE
+```powershell
+git clone https://github.com/Sakejaswanth/IndexForge-DB.git
+cd IndexForge-DB
 ```
 
 ### Step 1 — Python dependencies
 
-```bash
+```powershell
 pip install fastapi uvicorn pybind11 librosa numpy pandas scikit-learn torch torchvision pillow
 ```
 
 ### Step 2 — Build C++ modules
 
-```bash
-python3 -c "import pybind11; print(pybind11.get_cmake_dir())"
-# use the output as <pybind11_path> below
-
-rm -rf build && mkdir build && cd build
-cmake .. -Dpybind11_DIR=<pybind11_path>
-make -j$(nproc)
-cd ..
-
-ls build/*.so   # sqlmates_core*.so  rtree_core*.so
+```powershell
+cmake -S src -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --config Release
 ```
 
 ### Step 3 — Download datasets
@@ -299,8 +292,8 @@ unzip stanford-dogs-dataset.zip -d Data/
 
 ### Step 4 — Build indexes
 
-```bash
-mkdir -p data
+```powershell
+New-Item -ItemType Directory -Force data
 
 # Audio: GTZAN 99K records at 5 dimensionalities
 python scripts/load_dataset.py --dataset gtzan_99k
@@ -311,29 +304,24 @@ python scripts/preprocess_images.py
 
 ### Step 5 — Run standalone C++ benchmark
 
-```bash
-cd build && ./benchmark
+```powershell
+./build/Release/benchmark.exe
 ```
 
 Outputs KD-Tree vs linear timing for 100K random 2D points directly from C++.
 
 ### Step 6 — Start backend
 
-```bash
+```powershell
 uvicorn app:app --reload --port 8004
 ```
 
 ### Step 7 — Start frontend
 
-```bash
+```powershell
 cd frontend
-
-# Install nvm + Node if needed
-curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
-source ~/.bashrc
-nvm install 20 && nvm use 20
-
-npm install && npm run dev
+npm install
+npm run dev
 ```
 
 Open **http://localhost:5173**.

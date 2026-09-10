@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 
-const API = 'http://127.0.0.1:8004';
+const API = import.meta.env.VITE_API_URL || '';
 
 const fontLink = document.createElement('link');
 fontLink.rel = 'stylesheet';
